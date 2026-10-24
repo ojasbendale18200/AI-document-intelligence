@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import documentRoutes from "./routes/document.routes.js";
 
 const app = express();
 
@@ -20,5 +21,7 @@ app.get("/health", (_req, res) => {
     message: "AI Document Intelligence API is running",
   });
 });
+
+app.use("/api/documents", documentRoutes);
 
 export default app;
