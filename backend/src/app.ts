@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import documentRoutes from "./routes/document.routes.js";
+import extractionRoutes from "./routes/extraction.routes.js";
+import { errorHandler } from "./middleware/error.middleware.js";
 
 const app = express();
 
@@ -23,5 +25,8 @@ app.get("/health", (_req, res) => {
 });
 
 app.use("/api/documents", documentRoutes);
+app.use("/api/documents", extractionRoutes);
+
+app.use(errorHandler);
 
 export default app;

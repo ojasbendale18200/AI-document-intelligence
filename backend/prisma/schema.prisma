@@ -8,9 +8,18 @@ datasource db {
 }
 
 model Document {
-id        String   @id @default(uuid())
-filename  String
-status    String   @default("UPLOADED")
-createdAt DateTime @default(now())
-updatedAt DateTime @updatedAt
+  id         String   @id @default(uuid())
+  filename   String
+  mimeType   String   @default("application/pdf")
+  size       Int      @default(0)
+  storageKey String   @default("")
+  status     String   @default("UPLOADED")
+  extractedText String?
+  pageCount Int?
+  extractedAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
 }
+
+
