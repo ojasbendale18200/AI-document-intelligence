@@ -1,9 +1,14 @@
 import { Router } from "express";
 import prisma from "../config/prisma.js";
-
+import {
+  createDocumentSchema,
+  updateDocumentSchema,
+} from "../validators/document.validator.js";
 
 const router = Router();
 
+// GET /api/documents
+// Retrieve all documents.
 router.get("/", async (_req, res, next) => {
   try {
     const documents = await prisma.document.findMany({
@@ -15,6 +20,96 @@ router.get("/", async (_req, res, next) => {
     res.status(200).json({
       success: true,
       data: documents,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/documents/:id
+// Retrieve one document.
+router.get("/:id", async (req, res, next) => {
+  try {
+    const document = await prisma.document.findUnique({
+      where: {
+        id: req.params.id,
+      },
+    });
+
+    if (!document) {
+      res.status(404).json({
+        success: false,
+        message: "Document not found",
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      data: document,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/documents
+// Create a document record.
+router.post("/", async (req, res, next) => {
+  try {
+    const validatedData = createDocumentSchema.parse(req.body);
+
+    const document = await prisma.document.create({
+      data: {
+        filename: validatedData.filename,
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Document created successfully",
+      data: document,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PATCH /api/documents/:id
+// Update a document record.
+router.patch("/:id", async (req, res, next) => {
+  try {
+    const validatedData = updateDocumentSchema.parse(req.body);
+
+    const document = await prisma.document.update({
+      where: {
+        id: req.params.id,
+      },
+      data: validatedData,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Document updated successfully",
+      data: document,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// DELETE /api/documents/:id
+// Delete a document record.
+router.delete("/:id", async (req, res, next) => {
+  try {
+    await prisma.document.delete({
+      where: {
+        id: req.params.id,
+      },
+    });
+    res.status(200).json({
+      success: true,
+      message: "Document deleted successfully",
     });
   } catch (error) {
     next(error);

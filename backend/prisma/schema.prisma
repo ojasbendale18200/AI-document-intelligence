@@ -8,9 +8,9 @@ datasource db {
 }
 
 model Document {
-  id        String   @id @default(uuid())
-  filename  String
-  status    String   @default("UPLOADED")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-} 
+id        String   @id @default(uuid())
+filename  String
+status    String   @default("UPLOADED")
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+}
