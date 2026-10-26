@@ -19,7 +19,40 @@ model Document {
   extractedAt DateTime?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-
+   invoice       Invoice?
 }
+
+model Invoice {
+id                  String   @id @default(uuid())
+
+documentId          String   @unique
+document            Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+invoiceNumber       String?
+invoiceDate         String?
+dueDate             String?
+
+supplierName        String?
+supplierTaxId       String?
+
+customerName        String?
+customerTaxId       String?
+
+purchaseOrderNumber String?
+currency            String?
+
+lineItems           Json
+
+subtotal            Float?
+taxRatePercent      Float?
+taxAmount           Float?
+totalAmount         Float?
+
+paymentTerms        String?
+
+createdAt           DateTime @default(now())
+updatedAt           DateTime @updatedAt
+}
+
 
 
