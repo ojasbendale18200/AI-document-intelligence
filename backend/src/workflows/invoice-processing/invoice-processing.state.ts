@@ -1,34 +1,63 @@
 import { Annotation } from "@langchain/langgraph";
 
 export const InvoiceProcessingState = Annotation.Root({
-  // ID of the uploaded document being processed.
+  // The document being processed.
   documentId: Annotation<string>(),
 
-  // Tracks the workflow's current processing stage.
+  // Current position in the workflow.
   currentStep: Annotation<string>({
-    reducer: (_previous, next) => next,
+    reducer: (_, update) => update,
     default: () => "STARTED",
   }),
 
-  // Tracks the overall processing outcome.
+  // Overall workflow status.
   status: Annotation<string>({
-    reducer: (_previous, next) => next,
+    reducer: (_, update) => update,
     default: () => "PROCESSING",
   }),
 
-  // Stores the error message when a node fails.
-  error: Annotation<string | null>({
-    reducer: (_previous, next) => next,
+  // Financial validation result.
+  validationPassed: Annotation<boolean | null>({
+    reducer: (_, update) => update,
     default: () => null,
   }),
 
-  // Stores a human-readable explanation of the outcome.
+  // Purchase-order matching result.
+  matchingStatus: Annotation<string | null>({
+    reducer: (_, update) => update,
+    default: () => null,
+  }),
+
+  // Explanation of errors or review requirements.
+  error: Annotation<string | null>({
+    reducer: (_, update) => update,
+    default: () => null,
+  }),
+
   message: Annotation<string>({
-    reducer: (_previous, next) => next,
+    reducer: (_, update) => update,
     default: () => "",
+  }),
+
+  // Why the workflow needs human intervention.
+  reviewReason: Annotation<string | null>({
+    reducer: (_, update) => update,
+    default: () => null,
+  }),
+
+  // The reviewer's decision.
+  reviewDecision: Annotation<"APPROVE" | "REJECT" | "CORRECT" | null>({
+    reducer: (_, update) => update,
+    default: () => null,
+  }),
+
+  // Optional explanation provided by the reviewer.
+  reviewerComment: Annotation<string | null>({
+    reducer: (_, update) => update,
+    default: () => null,
   }),
 });
 
+
 export type InvoiceProcessingStateType = typeof InvoiceProcessingState.State;
 export type InvoiceProcessingUpdateType = typeof InvoiceProcessingState.Update;
-
