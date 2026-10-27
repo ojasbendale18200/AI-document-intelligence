@@ -49,10 +49,76 @@ taxAmount           Float?
 totalAmount         Float?
 
 paymentTerms        String?
+validationPassed    Boolean?
+validationDecision  String?
+validationIssues    Json?
+validatedAt         DateTime?
+purchaseOrderMatch  PurchaseOrderMatch?
 
 createdAt           DateTime @default(now())
 updatedAt           DateTime @updatedAt
 }
+
+model PurchaseOrder {
+id              String   @id @default(uuid())
+poNumber        String   @unique
+
+supplierName    String
+supplierTaxId   String?
+
+buyerName       String
+currency        String   @default("INR")
+
+orderDate       DateTime?
+expectedTotal   Decimal  @db.Decimal(14, 2)
+
+status          String   @default("OPEN")
+
+lineItems       PurchaseOrderLineItem[]
+matches         PurchaseOrderMatch[]
+
+createdAt       DateTime @default(now())
+updatedAt       DateTime @updatedAt
+}
+
+model PurchaseOrderLineItem {
+id                String        @id @default(uuid())
+
+purchaseOrderId   String
+purchaseOrder     PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+description       String
+quantity          Decimal       @db.Decimal(14, 3)
+unitPrice         Decimal       @db.Decimal(14, 2)
+expectedAmount    Decimal       @db.Decimal(14, 2)
+
+createdAt         DateTime      @default(now())
+updatedAt         DateTime      @updatedAt
+
+@@index([purchaseOrderId])
+}
+
+
+model PurchaseOrderMatch {
+id                String        @id @default(uuid())
+
+invoiceId         String        @unique
+invoice           Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+purchaseOrderId   String
+purchaseOrder     PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+
+status            String        @default("PENDING")
+issues            Json
+
+matchedAt         DateTime?
+createdAt         DateTime      @default(now())
+updatedAt         DateTime      @updatedAt
+
+@@index([purchaseOrderId])
+}
+
+
 
 
 
