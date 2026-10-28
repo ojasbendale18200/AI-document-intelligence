@@ -1,25 +1,31 @@
 import "dotenv/config";
+
 import app from "./app.js";
+import { initializeCheckpointer } from "./config/langgraph-checkpointer.js";
 
-const PORT = Number(process.env.PORT) || 5000;
+const PORT = Number(process.env.PORT ?? 5000);
 
-const server = app.listen(PORT, () => {
-  console.log(`Backend server running at http://localhost:${PORT}`);
-});
+async function startServer() {
+  await initializeCheckpointer();
 
-function shutdown(signal: string) {
-  console.log(`${signal} received. Shutting down server...`);
+  const server = app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
 
-  server.close((error) => {
-    if (error) {
-      console.error("Error while closing the server:", error);
-      process.exitCode = 1;
-      return;
-    }
+  process.on("SIGINT", () => {
+    server.close(() => {
+      process.exit(0);
+    });
+  });
 
-    console.log("Server closed successfully.");
+  process.on("SIGTERM", () => {
+    server.close(() => {
+      process.exit(0);
+    });
   });
 }
 
-process.once("SIGINT", () => shutdown("SIGINT"));
-process.once("SIGTERM", () => shutdown("SIGTERM"));
+startServer().catch((error) => {
+  console.error("Failed to start server:", error);
+  process.exitCode = 1;
+});

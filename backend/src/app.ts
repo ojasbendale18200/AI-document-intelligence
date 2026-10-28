@@ -7,6 +7,7 @@ import invoiceRoutes from "./routes/invoice.routes.js";
 import validationRoutes from "./routes/validation.routes.js";
 import purchaseOrderRoutes from "./routes/purchase-order.routes.js";
 import matchingRoutes from "./routes/matching.routes.js";
+import reviewRoutes from "./routes/review.routes.js";
 import { errorHandler } from "./middleware/error.middleware.js";
 
 const app = express();
@@ -33,6 +34,7 @@ app.use("/api/documents", extractionRoutes);
 app.use("/api/documents", invoiceRoutes);
 app.use("/api/purchase-orders", purchaseOrderRoutes);
 app.use("/api/documents", matchingRoutes);
+app.use("/api/reviews", reviewRoutes);
 app.use("/api/documents", validationRoutes);
 
 app.use(errorHandler);

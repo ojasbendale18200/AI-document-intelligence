@@ -11,8 +11,9 @@ import {
   workflowFailureNode,
   completeWorkflowNode,
 } from "./invoice-processing.nodes.js";
+import { invoiceCheckpointer } from "../../config/langgraph-checkpointer.js";
 import { withErrorHandling } from "./invoice-processing.helpers.js";
-const checkpointer = new MemorySaver();
+
 function routeAfterValidation(state: typeof InvoiceProcessingState.State) {
   if (state.status === "FAILED") {
     return "failure";
@@ -76,4 +77,4 @@ export const invoiceProcessingGraph = new StateGraph(InvoiceProcessingState)
   .addEdge("failure", END)
   .addEdge("complete", END)
 
-  .compile({ checkpointer });
+  .compile({ checkpointer: invoiceCheckpointer });

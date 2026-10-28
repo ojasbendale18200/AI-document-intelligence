@@ -8,6 +8,8 @@ import { runInvoiceValidation } from "../../services/invoice-validation-runner.s
 import { matchInvoiceToPurchaseOrder } from "../../services/purchase-order-matching.service.js";
 import { InvoiceProcessingStateType } from "./invoice-processing.state.js";
 
+import { createOrUpdateReviewTask } from "../../services/review-task.service.js";
+
 import { interrupt } from "@langchain/langgraph";
 
 type ReviewResponse = {
@@ -140,28 +142,49 @@ export async function matchPurchaseOrderNode(
 * Route the invoice to human review.
   */
 export async function humanReviewNode(state: InvoiceProcessingStateType) {
-  // Pause the workflow and request a human decision.
+  const threadId = `invoice-${state.documentId}`;
+
+  const reason =
+    state.reviewReason ??
+    state.message ??
+    "This invoice requires manual review.";
+
+  const reasonCode =
+    state.validationPassed === false
+      ? "FINANCIAL_VALIDATION"
+      : state.matchingStatus === "MISMATCH"
+        ? "PO_MATCHING"
+        : "MANUAL_REVIEW";
+
+  // 1. Create the persistent review task before pausing.
+  await createOrUpdateReviewTask({
+    documentId: state.documentId,
+    threadId,
+    reasonCode,
+    reason,
+    details: {
+      validationPassed: state.validationPassed,
+      matchingStatus: state.matchingStatus,
+      currentStep: state.currentStep,
+    },
+  });
+
+  // 2. Pause the workflow and wait for a decision.
   const reviewResponse = interrupt({
     type: "INVOICE_REVIEW_REQUIRED",
     documentId: state.documentId,
-    reason:
-      state.reviewReason ??
-      state.message ??
-      "This invoice requires manual review.",
+    reason,
+    reasonCode,
     validationPassed: state.validationPassed,
     matchingStatus: state.matchingStatus,
-    instructions: [
-      "APPROVE: Approve the invoice after reviewing the evidence.",
-      "REJECT: Reject the invoice.",
-      "CORRECT: Send the invoice for correction and reprocessing.",
-    ],
   }) as ReviewResponse;
 
-  // This code runs after the workflow is resumed.
+  // 3. Continue executing when the workflow is resumed.
   return {
     currentStep: "HUMAN_REVIEW_COMPLETED",
     reviewDecision: reviewResponse.decision,
     reviewerComment: reviewResponse.comment ?? null,
+
     status:
       reviewResponse.decision === "APPROVE"
         ? "HUMAN_APPROVED"

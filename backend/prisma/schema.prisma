@@ -15,6 +15,7 @@ model Document {
   storageKey String   @default("")
   status     String   @default("UPLOADED")
   extractedText String?
+  reviewTasks ReviewTask[]
   pageCount Int?
   extractedAt DateTime?
   createdAt  DateTime @default(now())
@@ -116,6 +117,43 @@ createdAt         DateTime      @default(now())
 updatedAt         DateTime      @updatedAt
 
 @@index([purchaseOrderId])
+}
+
+model ReviewTask {
+  id              String   @id @default(uuid())
+
+  documentId      String
+  document        Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  // The LangGraph thread associated with this review.
+  threadId        String   @unique
+
+  // PENDING, IN_PROGRESS, RESOLVED
+  status          String   @default("PENDING")
+
+  // FINANCIAL_VALIDATION, PO_MATCHING, etc.
+  reasonCode      String
+
+  // Human-readable explanation.
+  reason          String
+
+  // Evidence shown to the reviewer.
+  details         Json?
+
+  // APPROVE, REJECT, CORRECT
+  decision        String?
+
+  reviewerComment String?
+
+  // Populate these when authentication is implemented.
+  reviewerId      String?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  resolvedAt      DateTime?
+
+  @@index([status, createdAt])
+  @@index([documentId])
 }
 
 
