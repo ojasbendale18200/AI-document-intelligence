@@ -6,6 +6,7 @@ import pdfParseModule from "pdf-parse/lib/pdf-parse.js";
 
 const pdfParse = pdfParseModule as typeof PDFParse;
 import prisma from "../config/prisma.js";
+import { createAuditLog } from "./audit.service.js";
 
 // Keep this aligned with the storage directory used by Multer.
 // This default assumes the backend development server is started
@@ -76,6 +77,24 @@ export async function extractDocumentText(documentId: string) {
     },
   });
 
+  await createAuditLog({
+    documentId,
+
+    action: "PDF_TEXT_EXTRACTED",
+
+    entityType: "DOCUMENT",
+
+    entityId: documentId,
+
+    actorType: "SYSTEM",
+
+    description: "PDF text extraction completed successfully",
+
+    metadata: {
+      pageCount: parsedPdf.numpages,
+      extractedCharacters: parsedPdf.text.length,
+    },
+  });
   return {
     document: updatedDocument,
     extractedText,

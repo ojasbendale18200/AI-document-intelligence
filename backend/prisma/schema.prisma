@@ -21,6 +21,7 @@ model Document {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
    invoice       Invoice?
+   auditLogs     AuditLog[]   
 }
 
 model Invoice {
@@ -156,6 +157,28 @@ model ReviewTask {
   @@index([documentId])
 }
 
+model AuditLog {
+  id          String   @id @default(uuid())
+
+  documentId  String?
+  document    Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  action      String
+  entityType  String
+  entityId    String?
+
+  actorType   String   @default("SYSTEM")
+  actorId     String?
+
+  description String
+  metadata    Json?
+
+  createdAt   DateTime @default(now())
+
+  @@index([documentId])
+  @@index([action])
+  @@index([createdAt])
+}
 
 
 

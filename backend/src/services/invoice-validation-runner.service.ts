@@ -1,6 +1,7 @@
 import prisma from "../config/prisma.js";
 
 import { invoiceExtractionSchema } from "../validators/invoice.validator.js";
+import { createAuditLog } from "./audit.service.js";
 
 import { validateInvoice } from "./invoice-validation.service.js";
 
@@ -75,6 +76,28 @@ export async function runInvoiceValidation(documentId: string) {
       },
       data: {
         status: result.passed ? "VALIDATION_PASSED" : "REVIEW_REQUIRED",
+      },
+    });
+    await createAuditLog({
+      documentId,
+
+      action: result.passed
+        ? "VALIDATION_PASSED"
+        : "VALIDATION_FAILED",
+
+      entityType: "INVOICE",
+
+      entityId: invoiceRecord.id,
+
+      actorType: "SYSTEM",
+
+      description: result.passed
+        ? "Invoice passed financial validation"
+        : "Invoice failed financial validation",
+
+      metadata: {
+        decision: result.decision,
+        issueCount: result.issues.length,
       },
     });
   });

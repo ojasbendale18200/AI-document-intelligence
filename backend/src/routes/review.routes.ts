@@ -4,6 +4,7 @@ import prisma from "../config/prisma.js";
 import { Command } from "@langchain/langgraph";
 import { invoiceProcessingGraph } from "../workflows/invoice-processing/invoice-processing.graph.js";
 import { reviewDecisionSchema } from "../validators/review.validator.js";
+import { createAuditLog } from "../services/audit.service.js";
 
 const router = Router();
 
@@ -244,6 +245,27 @@ router.post("/:id/decision", async (req, res, next) => {
           resolvedAt: new Date(),
         },
       });
+    });
+
+    await createAuditLog({
+      documentId: existingTask.documentId,
+
+      action: `REVIEW_${decision}`,
+
+      entityType: "REVIEW_TASK",
+
+      entityId: existingTask.id,
+
+      actorType: "USER",
+
+      actorId: null,
+
+      description: `Invoice review decision: ${decision}`,
+
+      metadata: {
+        decision,
+        comment,
+      },
     });
 
     // 9. Return the final response.

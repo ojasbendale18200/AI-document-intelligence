@@ -9,6 +9,7 @@ import { fileTypeFromFile } from "file-type";
 
 import { documentStorageDirectory, uploadPdf } from "../config/multer.js";
 import path from "node:path";
+import { createAuditLog } from "../services/audit.service.js";
 
 const router = Router();
 
@@ -209,6 +210,25 @@ router.post("/", async (req, res, next) => {
     const document = await prisma.document.create({
       data: {
         filename: validatedData.filename,
+      },
+    });
+    await createAuditLog({
+      documentId: document.id,
+
+      action: "INVOICE_UPLOADED",
+
+      entityType: "DOCUMENT",
+
+      entityId: document.id,
+
+      actorType: "SYSTEM",
+
+      description: `Invoice ${document.filename} uploaded successfully`,
+
+      metadata: {
+        filename: document.filename,
+        size: document.size,
+        mimeType: document.mimeType,
       },
     });
 

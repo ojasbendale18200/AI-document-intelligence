@@ -7,6 +7,7 @@ import {
   invoiceExtractionSchema,
   type InvoiceExtraction,
 } from "../validators/invoice.validator.js";
+import { createAuditLog } from "./audit.service.js";
 
 export class InvoiceExtractionError extends Error {
   constructor(
@@ -102,8 +103,8 @@ ${document.extractedText}
   const invoiceData = invoiceExtractionSchema.parse(response.output_parsed);
 
   // 6. Save the invoice and update the document status.
-  await prisma.$transaction(async (transaction) => {
-    await transaction.invoice.upsert({
+  const invoice = await prisma.$transaction(async (transaction) => {
+    const inv = await transaction.invoice.upsert({
       where: {
         documentId: document.id,
       },
@@ -168,6 +169,27 @@ ${document.extractedText}
         status: "AI_EXTRACTED",
       },
     });
+
+    return inv;
+  });
+
+  await createAuditLog({
+    documentId,
+
+    action: "AI_EXTRACTION_COMPLETED",
+
+    entityType: "INVOICE",
+
+    entityId: invoice.id,
+
+    actorType: "AI",
+
+    description: "AI successfully extracted invoice information",
+
+    metadata: {
+      model: process.env.OPENAI_MODEL,
+      fieldsExtracted: Object.keys(invoiceData).length,
+    },
   });
 
   return invoiceData;

@@ -2,24 +2,17 @@ interface FinancialDiscrepancyProps {
   subtotal: number | null;
   taxAmount: number | null;
   totalAmount: number | null;
-  validationIssues?: Array<{
-    code: string;
-    severity: "ERROR" | "WARNING";
-    field?: string;
-    message: string;
-    expected?: number | null;
-    actual?: number | null;
-  }>;
+  currency?: string | null;
 }
 
-function formatCurrency(value: number | null) {
+function formatCurrency(value: number | null, currency: string = "INR") {
   if (value === null || value === undefined) {
     return "Not available";
   }
 
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
-    currency: "INR",
+    currency: currency || "INR",
     minimumFractionDigits: 2,
   }).format(value);
 }
@@ -28,15 +21,10 @@ export default function FinancialDiscrepancy({
   subtotal,
   taxAmount,
   totalAmount,
-  validationIssues = [],
+  currency = "INR",
 }: FinancialDiscrepancyProps) {
   const expectedTotal =
     subtotal !== null && taxAmount !== null ? subtotal + taxAmount : null;
-
-  const difference =
-    totalAmount !== null && expectedTotal !== null
-      ? totalAmount - expectedTotal
-      : null;
 
   const rows = [
     {
@@ -50,34 +38,32 @@ export default function FinancialDiscrepancy({
       expected: taxAmount,
     },
     {
-      label: "Invoice Total",
+      label: "Total",
       extracted: totalAmount,
       expected: expectedTotal,
     },
   ];
 
   return (
-    <div className="rounded-xl border bg-white p-5">
-      <div className="mb-5">
-        <h2 className="text-lg font-semibold">Financial Discrepancy</h2>
-
-        <p className="mt-1 text-sm text-gray-500">
-          Compare extracted invoice amounts with calculated amounts.
-        </p>
+    <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs">
+      <div className="mb-4">
+        <h3 className="text-[15px] font-bold text-slate-900 tracking-tight">
+          Financial Comparison
+        </h3>
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-xs">
           <thead>
-            <tr className="border-b text-left text-gray-500">
-              <th className="pb-3">Field</th>
-              <th className="pb-3">Extracted</th>
-              <th className="pb-3">Expected</th>
-              <th className="pb-3">Result</th>
+            <tr className="text-left font-semibold text-slate-700">
+              <th className="pb-3 font-semibold">Field</th>
+              <th className="pb-3 font-semibold">Extracted (Invoice)</th>
+              <th className="pb-3 font-semibold">Expected (Calculated)</th>
+              <th className="pb-3 font-semibold">Result</th>
             </tr>
           </thead>
 
-          <tbody>
+          <tbody className="divide-y divide-slate-100">
             {rows.map((row) => {
               const isMismatch =
                 row.extracted !== null &&
@@ -85,20 +71,60 @@ export default function FinancialDiscrepancy({
                 Math.abs(row.extracted - row.expected) > 0.01;
 
               return (
-                <tr key={row.label} className="border-b">
-                  <td className="py-4 font-medium">{row.label}</td>
+                <tr
+                  key={row.label}
+                  className={`transition-colors ${
+                    isMismatch ? "bg-rose-50/70" : "hover:bg-slate-50/50"
+                  }`}
+                >
+                  <td className="py-3 font-semibold text-slate-900">
+                    {row.label}
+                  </td>
 
-                  <td className="py-4">{formatCurrency(row.extracted)}</td>
+                  <td className="py-3 text-slate-700 font-medium">
+                    {formatCurrency(row.extracted, currency || "INR")}
+                  </td>
 
-                  <td className="py-4">{formatCurrency(row.expected)}</td>
+                  <td className="py-3 text-slate-700 font-medium">
+                    {formatCurrency(row.expected, currency || "INR")}
+                  </td>
 
-                  <td className="py-4">
+                  <td className="py-3">
                     {isMismatch ? (
-                      <span className="rounded-full bg-red-100 px-3 py-1 text-red-700">
+                      <span className="inline-flex items-center gap-1.5 font-bold text-rose-600 text-xs">
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="text-rose-600"
+                        >
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="15" y1="9" x2="9" y2="15" />
+                          <line x1="9" y1="9" x2="15" y2="15" />
+                        </svg>
                         Mismatch
                       </span>
                     ) : (
-                      <span className="rounded-full bg-green-100 px-3 py-1 text-green-700">
+                      <span className="inline-flex items-center gap-1.5 font-bold text-emerald-600 text-xs">
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="text-emerald-600"
+                        >
+                          <circle cx="12" cy="12" r="10" />
+                          <polyline points="9 12 11 14 15 10" />
+                        </svg>
                         Match
                       </span>
                     )}
@@ -109,45 +135,6 @@ export default function FinancialDiscrepancy({
           </tbody>
         </table>
       </div>
-
-      {difference !== null && difference !== 0 && (
-        <div className="mt-5 rounded-lg border border-red-200 bg-red-50 p-4">
-          <p className="text-sm font-medium text-red-700">
-            Financial discrepancy detected
-          </p>
-
-          <p className="mt-2 text-2xl font-bold text-red-800">
-            {formatCurrency(Math.abs(difference))}
-          </p>
-
-          <p className="mt-1 text-sm text-red-600">
-            The extracted invoice total does not match the calculated total.
-          </p>
-        </div>
-      )}
-
-      {validationIssues.length > 0 && (
-        <div className="mt-5 space-y-3">
-          <h3 className="font-semibold">Validation Issues</h3>
-
-          {validationIssues.map((issue, index) => (
-            <div
-              key={`${issue.code}-${index}`}
-              className="rounded-lg border border-amber-200 bg-amber-50 p-3"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <span className="font-medium">{issue.code}</span>
-
-                <span className="text-xs font-semibold text-amber-700">
-                  {issue.severity}
-                </span>
-              </div>
-
-              <p className="mt-1 text-sm text-gray-700">{issue.message}</p>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
