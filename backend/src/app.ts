@@ -10,6 +10,7 @@ import matchingRoutes from "./routes/matching.routes.js";
 import reviewRoutes from "./routes/review.routes.js";
 import auditRoutes from "./routes/audit.routes.js";
 import { errorHandler } from "./middleware/error.middleware.js";
+import processingHistoryRoutes from "./routes/processing-history.routes.js";
 
 const app = express();
 
@@ -38,6 +39,7 @@ app.use("/api/documents", matchingRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/documents", validationRoutes);
 app.use("/api/audit-logs", auditRoutes);
+app.use("/api/documents", processingHistoryRoutes);
 
 app.use(errorHandler);
 

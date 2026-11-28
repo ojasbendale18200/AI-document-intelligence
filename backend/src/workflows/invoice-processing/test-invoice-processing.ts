@@ -5,7 +5,7 @@ import prisma from "../../config/prisma.js";
 
 async function testInvoiceProcessing() {
   // Replace this with the ID of an invoice you already uploaded.
-  const documentId = "23b6fe16-4721-4ae8-8d12-e6b472c1a521";
+  const documentId = "ff16a125-92aa-4d11-9c0f-f14b8bf4ec8b";
 
   // Use the same thread ID when resuming this workflow later.
   const threadId = `invoice-${documentId}`;

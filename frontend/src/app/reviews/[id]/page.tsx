@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import InvoicePdfViewer from "@/src/components/reviews/InvoicePdfViewer";
 import FinancialDiscrepancy from "@/src/components/reviews/FinancialDiscrepancy";
 import AuditTimeline from "@/src/components/reviews/AuditTimeline";
+import ProcessingHistory from "@/src/components/reviews/ProcessingHistory";
 import ReviewStatusBadge from "@/src/components/reviews/ReviewStatusBadge";
 
 import { getReviewById, submitReviewDecision } from "@/src/lib/api/reviews";
@@ -641,9 +642,10 @@ function ReviewDetailsContent() {
             </div>
           </div>
 
-          {/* Right Column: Activity Timeline (Audit Log) (~38% width) */}
-          <div className="lg:col-span-5 xl:col-span-5">
+          {/* Right Column: Activity Timeline + Processing History (~38% width) */}
+          <div className="lg:col-span-5 xl:col-span-5 space-y-4">
             <AuditTimeline documentId={task.documentId} />
+            <ProcessingHistory documentId={task.documentId} />
           </div>
         </div>
       )}

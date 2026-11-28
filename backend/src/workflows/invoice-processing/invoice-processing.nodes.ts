@@ -10,6 +10,13 @@ import { InvoiceProcessingStateType } from "./invoice-processing.state.js";
 
 import { createOrUpdateReviewTask } from "../../services/review-task.service.js";
 
+import {
+  startProcessingStep,
+  completeProcessingStep,
+  failProcessingStep,
+  skipProcessingStep,
+} from "../../services/processing-history.service.js";
+
 import { interrupt } from "@langchain/langgraph";
 
 type ReviewResponse = {
@@ -18,129 +25,215 @@ type ReviewResponse = {
 };
 
 /**
-
-* Node 1:
-* Extract text from the uploaded PDF.
-  */
+ * Node 1: extractText
+ * Extract text from the uploaded PDF.
+ */
 export async function extractTextNode(state: InvoiceProcessingStateType) {
   console.log(`[Workflow] Extracting PDF text: ${state.documentId}`);
 
-  await extractDocumentText(state.documentId);
+  const step = await startProcessingStep({
+    documentId: state.documentId,
+    stepName: "extractText",
+    message: "Extracting text from PDF document.",
+  });
 
-  return {
-    currentStep: "TEXT_EXTRACTED",
-    status: "PROCESSING",
-    error: null,
-    message: "PDF text extraction completed.",
-  };
+  try {
+    await extractDocumentText(state.documentId);
+
+    await completeProcessingStep({
+      stepId: step.id,
+      message: "PDF text extraction completed successfully.",
+    });
+
+    return {
+      currentStep: "TEXT_EXTRACTED",
+      status: "PROCESSING",
+      error: null,
+      message: "PDF text extraction completed.",
+    };
+  } catch (error) {
+    await failProcessingStep({
+      stepId: step.id,
+      error: error instanceof Error ? error.message : String(error),
+      message: "PDF text extraction failed.",
+    });
+    throw error;
+  }
 }
 
 /**
-
-* Node 2:
-* Extract structured invoice fields using the existing AI service.
-  */
+ * Node 2: extractInvoice
+ * Extract structured invoice fields using the AI service.
+ */
 export async function extractInvoiceNode(state: InvoiceProcessingStateType) {
   console.log(`[Workflow] Extracting invoice data: ${state.documentId}`);
 
-  await extractInvoiceData(state.documentId);
+  const step = await startProcessingStep({
+    documentId: state.documentId,
+    stepName: "extractInvoice",
+    message: "Extracting structured invoice data using AI.",
+  });
 
-  return {
-    currentStep: "AI_EXTRACTION_COMPLETED",
-    status: "PROCESSING",
-    error: null,
-    message: "AI invoice extraction completed.",
-  };
+  try {
+    await extractInvoiceData(state.documentId);
+
+    await completeProcessingStep({
+      stepId: step.id,
+      message: "AI invoice extraction completed successfully.",
+    });
+
+    return {
+      currentStep: "AI_EXTRACTION_COMPLETED",
+      status: "PROCESSING",
+      error: null,
+      message: "AI invoice extraction completed.",
+    };
+  } catch (error) {
+    await failProcessingStep({
+      stepId: step.id,
+      error: error instanceof Error ? error.message : String(error),
+      message: "AI invoice extraction failed.",
+    });
+    throw error;
+  }
 }
 
 /**
-
-* Node 3:
-* Run financial validation and read the persisted result.
-  */
+ * Node 3: validateInvoice
+ * Run financial validation and read the persisted result.
+ */
 export async function validateInvoiceNode(state: InvoiceProcessingStateType) {
   console.log(`[Workflow] Validating invoice: ${state.documentId}`);
 
-  await runInvoiceValidation(state.documentId);
-
-  const invoice = await prisma.invoice.findUnique({
-    where: {
-      documentId: state.documentId,
-    },
-    select: {
-      validationPassed: true,
-      validationDecision: true,
-    },
+  const step = await startProcessingStep({
+    documentId: state.documentId,
+    stepName: "validateInvoice",
+    message: "Running financial validation.",
   });
 
-  if (!invoice || invoice.validationPassed === null) {
-    throw new Error("Financial validation did not produce a saved result.");
-  }
+  try {
+    await runInvoiceValidation(state.documentId);
 
-  const passed = invoice.validationPassed;
+    const invoice = await prisma.invoice.findUnique({
+      where: {
+        documentId: state.documentId,
+      },
+      select: {
+        validationPassed: true,
+        validationDecision: true,
+      },
+    });
 
-  return {
-    currentStep: "FINANCIAL_VALIDATION_COMPLETED",
-    validationPassed: passed,
-    status: passed ? "PROCESSING" : "REVIEW_REQUIRED",
-    error: null,
-    message: passed
+    if (!invoice || invoice.validationPassed === null) {
+      throw new Error("Financial validation did not produce a saved result.");
+    }
+
+    const passed = invoice.validationPassed;
+    const message = passed
       ? "Financial validation passed."
       : `Financial validation requires review: ${
           invoice.validationDecision ?? "REVIEW_REQUIRED"
-        }`,
-  };
+        }`;
+
+    await completeProcessingStep({
+      stepId: step.id,
+      message,
+    });
+
+    // If financial validation failed, matchPO is skipped for human review
+    if (!passed) {
+      await skipProcessingStep({
+        documentId: state.documentId,
+        stepName: "matchPO",
+        message: "Skipped because financial validation requires review.",
+      });
+    }
+
+    return {
+      currentStep: "FINANCIAL_VALIDATION_COMPLETED",
+      validationPassed: passed,
+      status: passed ? "PROCESSING" : "REVIEW_REQUIRED",
+      error: null,
+      message,
+    };
+  } catch (error) {
+    await failProcessingStep({
+      stepId: step.id,
+      error: error instanceof Error ? error.message : String(error),
+      message: "Financial validation failed.",
+    });
+    throw error;
+  }
 }
 
 /**
-
-* Node 4:
-* Match the invoice against its purchase order.
-  */
+ * Node 4: matchPO
+ * Match the invoice against its purchase order.
+ */
 export async function matchPurchaseOrderNode(
   state: InvoiceProcessingStateType,
 ) {
   console.log(`[Workflow] Matching purchase order: ${state.documentId}`);
 
-  await matchInvoiceToPurchaseOrder(state.documentId);
-
-  const invoice = await prisma.invoice.findUnique({
-    where: {
-      documentId: state.documentId,
-    },
-    select: {
-      purchaseOrderMatch: {
-        select: {
-          status: true,
-        },
-      },
-    },
+  const step = await startProcessingStep({
+    documentId: state.documentId,
+    stepName: "matchPO",
+    message: "Matching invoice against purchase order.",
   });
 
-  const matchingStatus = invoice?.purchaseOrderMatch?.status ?? null;
+  try {
+    await matchInvoiceToPurchaseOrder(state.documentId);
 
-  if (!matchingStatus) {
-    throw new Error("Purchase order matching did not produce a saved result.");
-  }
+    const invoice = await prisma.invoice.findUnique({
+      where: {
+        documentId: state.documentId,
+      },
+      select: {
+        purchaseOrderMatch: {
+          select: {
+            status: true,
+          },
+        },
+      },
+    });
 
-  const matched = matchingStatus === "MATCHED";
+    const matchingStatus = invoice?.purchaseOrderMatch?.status ?? null;
 
-  return {
-    currentStep: "PO_MATCHING_COMPLETED",
-    matchingStatus,
-    status: matched ? "COMPLETED" : "REVIEW_REQUIRED",
-    error: null,
-    message: matched
+    if (!matchingStatus) {
+      throw new Error("Purchase order matching did not produce a saved result.");
+    }
+
+    const matched = matchingStatus === "MATCHED";
+    const message = matched
       ? "Invoice successfully matched against the purchase order."
-      : "Purchase order matching found discrepancies.",
-  };
+      : "Purchase order matching found discrepancies.";
+
+    await completeProcessingStep({
+      stepId: step.id,
+      message,
+    });
+
+    return {
+      currentStep: "PO_MATCHING_COMPLETED",
+      matchingStatus,
+      status: matched ? "COMPLETED" : "REVIEW_REQUIRED",
+      error: null,
+      message,
+    };
+  } catch (error) {
+    await failProcessingStep({
+      stepId: step.id,
+      error: error instanceof Error ? error.message : String(error),
+      message: "Purchase order matching failed.",
+    });
+    throw error;
+  }
 }
 
 /**
-
-* Node 5:
-* Route the invoice to human review.
-  */
+ * Node 5: humanReview
+ * Route the invoice to human review.
+ */
 export async function humanReviewNode(state: InvoiceProcessingStateType) {
   const threadId = `invoice-${state.documentId}`;
 
@@ -156,7 +249,7 @@ export async function humanReviewNode(state: InvoiceProcessingStateType) {
         ? "PO_MATCHING"
         : "MANUAL_REVIEW";
 
-  // 1. Create the persistent review task before pausing.
+  // 1. Create or update the persistent review task before pausing.
   await createOrUpdateReviewTask({
     documentId: state.documentId,
     threadId,
@@ -169,6 +262,24 @@ export async function humanReviewNode(state: InvoiceProcessingStateType) {
     },
   });
 
+  // Check if a processing step for humanReview is already open in PROCESSING status
+  const existingStep = await prisma.documentProcessingStep.findFirst({
+    where: {
+      documentId: state.documentId,
+      stepName: "humanReview",
+      status: "PROCESSING",
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const reviewStep =
+    existingStep ??
+    (await startProcessingStep({
+      documentId: state.documentId,
+      stepName: "humanReview",
+      message: `Awaiting human review: ${reason}`,
+    }));
+
   // 2. Pause the workflow and wait for a decision.
   const reviewResponse = interrupt({
     type: "INVOICE_REVIEW_REQUIRED",
@@ -179,7 +290,15 @@ export async function humanReviewNode(state: InvoiceProcessingStateType) {
     matchingStatus: state.matchingStatus,
   }) as ReviewResponse;
 
-  // 3. Continue executing when the workflow is resumed.
+  // 3. Mark the human review step as completed when the workflow resumes.
+  await completeProcessingStep({
+    stepId: reviewStep.id,
+    message: `Reviewer decision: ${reviewResponse.decision}${
+      reviewResponse.comment ? ` - ${reviewResponse.comment}` : ""
+    }`,
+  });
+
+  // 4. Continue executing when the workflow is resumed.
   return {
     currentStep: "HUMAN_REVIEW_COMPLETED",
     reviewDecision: reviewResponse.decision,
@@ -197,15 +316,26 @@ export async function humanReviewNode(state: InvoiceProcessingStateType) {
 }
 
 /**
-
-* Node 6:
-* Record an unexpected workflow failure.
-  */
+ * Node 6: failure
+ * Record an unexpected workflow failure.
+ */
 export async function workflowFailureNode(state: InvoiceProcessingStateType) {
   console.error(
     `[Workflow] Processing failed for ${state.documentId}:`,
     state.error,
   );
+
+  const step = await startProcessingStep({
+    documentId: state.documentId,
+    stepName: "failure",
+    message: "Recording workflow failure.",
+  });
+
+  await failProcessingStep({
+    stepId: step.id,
+    error: state.error ?? "Workflow processing failure",
+    message: state.message || "Invoice processing failed.",
+  });
 
   return {
     currentStep: "FAILED",
@@ -215,12 +345,23 @@ export async function workflowFailureNode(state: InvoiceProcessingStateType) {
 }
 
 /**
-
-* Final node:
-* Mark the workflow as successfully completed.
-  */
+ * Node 7: complete
+ * Mark the workflow as successfully completed.
+ */
 export async function completeWorkflowNode(state: InvoiceProcessingStateType) {
   console.log(`[Workflow] Processing completed for ${state.documentId}`);
+
+  const step = await startProcessingStep({
+    documentId: state.documentId,
+    stepName: "complete",
+    message: "Finalizing workflow completion.",
+  });
+
+  await completeProcessingStep({
+    stepId: step.id,
+    message:
+      "Invoice extraction, financial validation, and PO matching completed successfully.",
+  });
 
   return {
     currentStep: "COMPLETED",

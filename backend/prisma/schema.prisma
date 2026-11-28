@@ -22,6 +22,7 @@ model Document {
   updatedAt  DateTime @updatedAt
    invoice       Invoice?
    auditLogs     AuditLog[]   
+   processingSteps DocumentProcessingStep[]
 }
 
 model Invoice {
@@ -178,6 +179,33 @@ model AuditLog {
   @@index([documentId])
   @@index([action])
   @@index([createdAt])
+}
+
+model DocumentProcessingStep {
+  id          String   @id @default(uuid())
+
+  documentId  String
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  stepName    String
+  status      String   @default("PENDING")
+
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  durationMs  Int?
+
+  message     String?
+  error       String?
+
+  attempt     Int      @default(1)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([documentId])
+  @@index([documentId, createdAt])
+  @@index([stepName, status])
 }
 
 
